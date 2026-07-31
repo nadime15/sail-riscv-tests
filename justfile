@@ -15,6 +15,8 @@ SAIL_RISCV_DOWNLOAD_URL := "https://github.com/riscv/sail-riscv/releases/downloa
 RISCV_TESTS_ARCHIVE := "riscv-tests.tar.gz"
 VECTOR_TESTS_ARCHIVE_PREFIX := "riscv-vector-tests-"
 ARCH_TESTS_ARCHIVE := "riscv-arch-tests.tar.gz"
+DAMO_TESTS_ARCHIVE := "damo-tests.tar.gz"
+DAMO_EXTS := "Hypervisor Sv39x4 Sv48x4 Sv57x4 Sv39x4_Sv39 Sv39x4_Sv48 Sv39x4_Sv57 Sv48x4_Sv39 Sv48x4_Sv48 Sv48x4_Sv57 Sv57x4_Sv39 Sv57x4_Sv48 Sv57x4_Sv57 Hypervisor_Smstateen Hypervisor_Ssccptr Hypervisor_Ssstateen Hypervisor_Sstc Hypervisor_Sstvala Hypervisor_Svadu Hypervisor_Svinval Hypervisor_Svnapot Hypervisor_Svpbmt Sha Shgatpa Shcounterenw Shlcofideleg Hypervisor_Smmpm Hypervisor_Smnpm Hypervisor_Ssnpm Hypervisor_Zicbom Hypervisor_Zicbop Hypervisor_Zicboz Hypervisor_Zicfilp Shtvala Shvsatpa Shvstvala Shvstvecd"
 RELEASE_DOWNLOAD_URL := "https://github.com/riscv-software-src/sail-riscv-tests/releases/download"
 
 default:
@@ -159,6 +161,38 @@ arch-tests-tgz prefix=INSTALL_PREFIX: (build-arch-tests prefix)
 clean-arch-tests:
     make clean
 
+### damo-rv-priv-ats hypervisor test recipes
+
+# These recipes require the toolchain in the path. See the note above about
+# setting environment variables. Unlike the tgz suites above, each damo suite is
+# one self checking ELF per extension, built with the sail-rv64-max config, so
+# build-damo-tests only builds and never runs the Sail simulator.
+
+[script("/usr/bin/bash")]
+[working-directory: 'damo-rv-priv-ats']
+build-damo-tests:
+    set -euo pipefail
+    for ext in {{DAMO_EXTS}}; do
+      echo "===== ${ext} ====="
+      make -C "${ext}" CONFIG=sail-rv64-max CROSS_COMPILER=riscv64-unknown-elf-
+    done
+
+[script("/usr/bin/bash")]
+[working-directory: 'damo-rv-priv-ats']
+damo-tests-tgz: build-damo-tests
+    set -euo pipefail
+    for ext in {{DAMO_EXTS}}; do
+      find "${ext}" -maxdepth 1 -name '*.elf'
+    done | tar -czvf ../{{DAMO_TESTS_ARCHIVE}} --dereference -T -
+
+[script("/usr/bin/bash")]
+[working-directory: 'damo-rv-priv-ats']
+clean-damo-tests:
+    set -euo pipefail
+    for ext in {{DAMO_EXTS}}; do
+      make -C "${ext}" clean
+    done
+
 ### Release management
 
 [script("/usr/bin/bash")]
@@ -191,4 +225,4 @@ compare-releases previous current: (download-release previous) (download-release
 show-default-install-prefix:
     @echo {{INSTALL_PREFIX}}
 
-clean: clean-riscv-tests clean-vector-tests clean-spike clean-arch-tests
+clean: clean-riscv-tests clean-vector-tests clean-spike clean-arch-tests clean-damo-tests
